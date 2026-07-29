@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gpu-benchmark-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gpu-benchmark-api
+  template:
+    metadata:
+      labels:
+        app: gpu-benchmark-api
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/<your-username>/gpu-benchmark-api:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: gpu-benchmark-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: gpu-benchmark-secrets
+                  key: database_url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: gpu-benchmark-secrets
+                  key: redis_url
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gpu-benchmark-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gpu-benchmark-worker
+  template:
+    metadata:
+      labels:
+        app: gpu-benchmark-worker
+    spec:
+      containers:
+        - name: worker
+          image: ghcr.io/<your-username>/gpu-benchmark-api:latest
+          command: ["python", "-m", "app.workers.benchmark_worker"]
+          envFrom:
+            - configMapRef:
+                name: gpu-benchmark-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: gpu-benchmark-secrets
+                  key: database_url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: gpu-benchmark-secrets
+                  key: redis_url

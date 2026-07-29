@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gpu-benchmark-config
+data:
+  ENVIRONMENT: production
+  REDIS_QUEUE_NAME: benchmark:jobs
+  REDIS_DLQ_NAME: benchmark:jobs:dlq
+  WORKER_MAX_RETRIES: "3"
