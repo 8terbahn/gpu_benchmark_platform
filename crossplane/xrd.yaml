@@ -1,0 +1,70 @@
+﻿---
+# CompositeResourceDefinition (XRD) – self-service API for GPU benchmark environments.
+#
+# Teams submit a BenchmarkEnvironment Claim (namespaced) to request a complete,
+# isolated benchmark execution environment. The platform provisions all underlying
+# resources transparently via the Composition defined in composition.yaml.
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xbenchmarkenvironments.platform.gpu-platform.io
+  annotations:
+    platform.gpu-platform.io/description: |
+      Self-service GPU benchmark environment for product teams.
+      Provisions a dedicated Namespace, ResourceQuota, and BenchmarkJob CR
+      from a single declarative Claim.
+spec:
+  group: platform.gpu-platform.io
+  names:
+    kind: XBenchmarkEnvironment
+    plural: xbenchmarkenvironments
+  claimNames:
+    kind: BenchmarkEnvironment
+    plural: benchmarkenvironments
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: [gpuModel, workloadType, batchSize, costCenter, owner]
+              properties:
+                gpuModel:
+                  type: string
+                  enum: [T4, V100, A100, H100, L40S, RTX4090]
+                  description: GPU model to benchmark.
+                workloadType:
+                  type: string
+                  enum: [inference, training]
+                  description: Benchmark workload class.
+                batchSize:
+                  type: integer
+                  minimum: 1
+                  maximum: 1024
+                  description: Batch size dimension.
+                costCenter:
+                  type: string
+                  pattern: '^CC-[0-9]{4}$'
+                  description: Cost-center code for chargeback (CC-NNNN).
+                owner:
+                  type: string
+                  description: Team or individual responsible for this benchmark.
+                maxRetries:
+                  type: integer
+                  minimum: 0
+                  maximum: 10
+                  default: 3
+                  description: Max retry attempts before marking Failed.
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                benchmarkJobName:
+                  type: string
+                throughput:
+                  type: number

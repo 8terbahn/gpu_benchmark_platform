@@ -1,0 +1,82 @@
+# Default values for benchmark-platform Helm chart.
+
+# ── Operator (Go) ──────────────────────────────────────────────────────────────
+operator:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/8terbahn/gpu_benchmark_platform/operator
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  leaderElect: false
+  metrics:
+    port: 8081
+  healthProbe:
+    port: 8082
+
+# ── Provider (Crossplane) ──────────────────────────────────────────────────────
+provider:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/8terbahn/gpu_benchmark_platform/provider
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  leaderElect: false
+  metrics:
+    port: 8080
+  healthProbe:
+    port: 8081
+
+# ── Python API Backend ─────────────────────────────────────────────────────────
+api:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/8terbahn/gpu_benchmark_platform/api
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 200m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+# ── Python Worker ──────────────────────────────────────────────────────────────
+worker:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/8terbahn/gpu_benchmark_platform/api
+    pullPolicy: IfNotPresent
+    tag: "latest"
+
+# ── Shared Config ──────────────────────────────────────────────────────────────
+nameOverride: ""
+fullnameOverride: ""
+serviceAccount:
+  create: true
+  name: ""
+
+redis:
+  enabled: true
+  url: "redis://redis:6379/0"
+
+postgres:
+  enabled: true
+  url: "postgresql+asyncpg://postgres:postgres@postgres:5432/benchmark_db"

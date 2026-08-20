@@ -1,0 +1,59 @@
+---
+# Provider Deployment – runs the Crossplane custom provider.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "benchmark-platform.fullname" . }}-provider
+  labels:
+    {{- include "benchmark-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: provider
+spec:
+  replicas: {{ .Values.provider.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "benchmark-platform.name" . }}-provider
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "benchmark-platform.name" . }}-provider
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: provider
+    spec:
+      serviceAccountName: {{ include "benchmark-platform.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: manager
+          image: "{{ .Values.provider.image.repository }}:{{ .Values.provider.image.tag }}"
+          imagePullPolicy: {{ .Values.provider.image.pullPolicy }}
+          command:
+            - /provider
+          args:
+            - --metrics-bind-address=:{{ .Values.provider.metrics.port }}
+            - --health-probe-bind-address=:{{ .Values.provider.healthProbe.port }}
+            - --leader-elect={{ .Values.provider.leaderElect }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.provider.metrics.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.provider.healthProbe.port }}
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: {{ .Values.provider.healthProbe.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.provider.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]

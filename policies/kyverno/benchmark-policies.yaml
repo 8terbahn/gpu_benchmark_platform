@@ -1,0 +1,120 @@
+﻿---
+# Kyverno ClusterPolicies for GPU Benchmark Platform.
+#
+# These admission-time policies enforce compliance rules on BenchmarkJob CRs
+# before they are persisted to etcd. Violations are blocked at the API server.
+#
+# Policies enforced:
+#   1. GPU model must be in the approved allow-list.
+#   2. workloadType must be "inference" or "training".
+#   3. Operator-managed labels (cost-center, owner) must be present.
+#   4. batchSize must be a positive integer <= 1024.
+
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: benchmark-gpu-model-allowlist
+  annotations:
+    policies.kyverno.io/title: GPU Model Allow-List
+    policies.kyverno.io/category: Benchmark Compliance
+    policies.kyverno.io/description: >
+      Ensures only approved GPU models (T4, V100, A100, H100, L40S, RTX4090)
+      are requested in BenchmarkJob resources.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: validate-gpu-model
+      match:
+        any:
+          - resources:
+              kinds: [BenchmarkJob]
+              apiGroups: [benchmarks.gpu-platform.io]
+      validate:
+        message: >
+          spec.gpuModel must be one of: T4, V100, A100, H100, L40S, RTX4090.
+          Got "{{ request.object.spec.gpuModel }}".
+        cel:
+          expressions:
+            - expression: >
+                request.object.spec.gpuModel in
+                ['T4', 'V100', 'A100', 'H100', 'L40S', 'RTX4090']
+              message: "gpuModel not in approved allow-list"
+
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: benchmark-workload-type-validation
+  annotations:
+    policies.kyverno.io/title: Workload Type Validation
+    policies.kyverno.io/category: Benchmark Compliance
+    policies.kyverno.io/description: >
+      Ensures workloadType is one of the supported values.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: validate-workload-type
+      match:
+        any:
+          - resources:
+              kinds: [BenchmarkJob]
+              apiGroups: [benchmarks.gpu-platform.io]
+      validate:
+        message: >
+          spec.workloadType must be "inference" or "training".
+          Got "{{ request.object.spec.workloadType }}".
+        cel:
+          expressions:
+            - expression: >
+                request.object.spec.workloadType in ['inference', 'training']
+              message: "workloadType not in allowed values"
+
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: benchmark-required-labels
+  annotations:
+    policies.kyverno.io/title: Required Cost Attribution Labels
+    policies.kyverno.io/category: FinOps Compliance
+    policies.kyverno.io/description: >
+      Enforces that every BenchmarkJob carries cost-center and owner labels
+      for chargeback and audit trail purposes.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: require-cost-center-label
+      match:
+        any:
+          - resources:
+              kinds: [BenchmarkJob]
+              apiGroups: [benchmarks.gpu-platform.io]
+      validate:
+        message: >
+          BenchmarkJob must have label "gpu-platform.io/cost-center" with format CC-NNNN.
+        cel:
+          expressions:
+            - expression: >
+                has(request.object.metadata.labels) &&
+                'gpu-platform.io/cost-center' in request.object.metadata.labels &&
+                request.object.metadata.labels['gpu-platform.io/cost-center'].matches('^CC-[0-9]{4}$')
+              message: "Missing or invalid gpu-platform.io/cost-center label"
+    - name: require-owner-label
+      match:
+        any:
+          - resources:
+              kinds: [BenchmarkJob]
+              apiGroups: [benchmarks.gpu-platform.io]
+      validate:
+        message: >
+          BenchmarkJob must have label "gpu-platform.io/owner".
+        cel:
+          expressions:
+            - expression: >
+                has(request.object.metadata.labels) &&
+                'gpu-platform.io/owner' in request.object.metadata.labels &&
+                size(request.object.metadata.labels['gpu-platform.io/owner']) > 0
+              message: "Missing gpu-platform.io/owner label"

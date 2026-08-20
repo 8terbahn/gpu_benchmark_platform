@@ -1,0 +1,121 @@
+﻿---
+# Crossplane Composition – maps a BenchmarkEnvironment claim to concrete K8s resources.
+#
+# Resources provisioned per BenchmarkEnvironment claim:
+#   1. Namespace         – team-scoped, labelled for cost attribution.
+#   2. ResourceQuota     – caps Pod count for the benchmark namespace.
+#   3. BenchmarkJob CR   – triggers the Go Operator → Python backend pipeline.
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xbenchmarkenvironment-composition
+  labels:
+    crossplane.io/xrd: xbenchmarkenvironments.platform.gpu-platform.io
+  annotations:
+    platform.gpu-platform.io/version: "v1alpha1"
+spec:
+  compositeTypeRef:
+    apiVersion: platform.gpu-platform.io/v1alpha1
+    kind: XBenchmarkEnvironment
+
+  # Pipeline mode: custom Go Function runs first to validate sizing.
+  mode: Pipeline
+  pipeline:
+    # Step 1: Custom Go Function validates GPU model + computes estimated runtime.
+    - step: benchmark-sizing
+      functionRef:
+        name: function-benchmark-sizing
+      input:
+        apiVersion: benchmark-sizing.fn.gpu-platform.io/v1alpha1
+        kind: SizingInput
+        metadata:
+          name: benchmark-sizing-input
+
+    # Step 2: Patch-and-Transform applies the composed resources.
+    - step: apply-resources
+      functionRef:
+        name: function-patch-and-transform
+      input:
+        apiVersion: pt.fn.crossplane.io/v1beta1
+        kind: Resources
+        resources:
+
+          # ── Namespace ──────────────────────────────────────────────────────────
+          - name: benchmark-namespace
+            base:
+              apiVersion: v1
+              kind: Namespace
+              spec: {}
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.owner
+                toFieldPath: metadata.name
+                transforms:
+                  - type: string
+                    string:
+                      fmt: "benchmark-%s"
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.costCenter
+                toFieldPath: metadata.labels["gpu-platform.io/cost-center"]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.owner
+                toFieldPath: metadata.labels["gpu-platform.io/owner"]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.gpuModel
+                toFieldPath: metadata.labels["gpu-platform.io/gpu-model"]
+
+          # ── ResourceQuota ──────────────────────────────────────────────────────
+          - name: benchmark-resource-quota
+            base:
+              apiVersion: v1
+              kind: ResourceQuota
+              metadata:
+                name: benchmark-quota
+              spec:
+                hard:
+                  pods: "10"
+                  requests.cpu: "8"
+                  requests.memory: "32Gi"
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.owner
+                toFieldPath: metadata.namespace
+                transforms:
+                  - type: string
+                    string:
+                      fmt: "benchmark-%s"
+
+          # ── BenchmarkJob CR (managed by the GPU Benchmark Operator) ────────────
+          - name: benchmark-job
+            base:
+              apiVersion: benchmarks.gpu-platform.io/v1alpha1
+              kind: BenchmarkJob
+              spec:
+                schedulerAPIURL: "http://gpu-benchmark-api.gpu-benchmark.svc.cluster.local:8000"
+                maxRetries: 3
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.gpuModel
+                toFieldPath: spec.gpuModel
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.workloadType
+                toFieldPath: spec.workloadType
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.batchSize
+                toFieldPath: spec.batchSize
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.maxRetries
+                toFieldPath: spec.maxRetries
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.owner
+                toFieldPath: metadata.namespace
+                transforms:
+                  - type: string
+                    string:
+                      fmt: "benchmark-%s"
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.costCenter
+                toFieldPath: metadata.labels["gpu-platform.io/cost-center"]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.owner
+                toFieldPath: metadata.labels["gpu-platform.io/owner"]

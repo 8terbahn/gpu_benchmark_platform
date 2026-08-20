@@ -1,0 +1,31 @@
+apiVersion: meta.pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-gpu-benchmark
+  annotations:
+    meta.crossplane.io/maintainer: "GPU Benchmark Platform Team"
+    meta.crossplane.io/source: "github.com/8terbahn/gpu_benchmark_platform"
+    meta.crossplane.io/description: |
+      Custom Crossplane Provider for GPU Benchmark Platform.
+
+      Manages GPUBenchmarkJob resources as external resources backed by the
+      Python FastAPI benchmark backend. Enables teams to declare GPU benchmark
+      workloads as Kubernetes-native Managed Resources through the Crossplane
+      control plane.
+    meta.crossplane.io/readme: |
+      # provider-gpu-benchmark
+
+      A custom Crossplane Provider that bridges Kubernetes Managed Resources
+      and the GPU Benchmark Platform's Python FastAPI backend.
+
+      ## Usage
+
+      Install the provider, configure a ProviderConfig with your scheduler API
+      URL, then apply GPUBenchmarkJob Managed Resources to trigger benchmark
+      execution.
+
+      See the project README for full usage examples.
+spec:
+  crossplane:
+    version: ">=v1.14.0-0"
+  dependsOn: []

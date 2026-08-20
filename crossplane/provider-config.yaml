@@ -1,0 +1,10 @@
+﻿---
+# ProviderConfig – configures the Crossplane Kubernetes provider to use
+# workload identity (in-cluster ServiceAccount) for managing resources.
+apiVersion: kubernetes.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: gpu-benchmark-kubernetes-provider
+spec:
+  credentials:
+    source: InjectedIdentity
