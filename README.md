@@ -1,17 +1,14 @@
 # GPU Benchmark Platform
 
-Enterprise-grade Kubernetes-native GPU benchmark platform built with Go, Crossplane,
-and the Operator pattern. Enables product teams to self-serve GPU benchmark execution
-through a single declarative YAML, with policy compliance and automated result capture.
+A declarative, Kubernetes-native performance evaluation engine for GPU workloads. Built with Go, Crossplane, and the Operator pattern, it enables product teams to self-serve benchmark execution through a single declarative YAML, while ensuring policy compliance and automated result capture.
 
-Originally a Python FastAPI async benchmark backend; evolved into a full
-**Platform Engineering reference implementation** demonstrating:
+**Part of the [GPU Compute Economics Platform](#related-projects)** — this service acts as the performance validation layer. It evaluates workloads and outputs cost-performance baselines used by the [distribute_gpu_scheduler](https://github.com/8terbahn/distribute_gpu_scheduler) to make financially-aware placement decisions, alongside market data from [gpu_price_intelligence](https://github.com/8terbahn/gpu_price_intelligence).
 
-- Kubernetes Operator (Kubebuilder / controller-runtime) — Go
-- Crossplane self-service control plane (XRD → Composition → Go Function)
-- Policy-as-Code (Kyverno + CEL)
-- Helm packaging + GitOps CI/CD (GitHub Actions, 6 stages)
-- SRE-grade async backend (FastAPI + Redis queue + PostgreSQL + DLQ)
+### Key Features
+- **Control Plane Integration:** Crossplane XRDs and Compositions exposed as self-service APIs.
+- **Custom Operator:** Go-based controller (Kubebuilder) managing the benchmark state machine.
+- **Policy Enforcement:** Kyverno + CEL for admission-time GPU allow-lists and cost-center validation.
+- **Async Backend:** Decoupled FastAPI + Redis + PostgreSQL architecture for reliable workload execution.
 
 ---
 
@@ -272,3 +269,24 @@ spec:
 - **Idempotent submission**: `namespace/name` used as idempotency key — safe to retry
   on any transient failure without duplicate jobs.
 - **GitOps-ready**: Helm chart + 6-stage GitHub Actions CI → reproducible, auditable deployments.
+
+
+---
+
+## Related Projects
+
+This project is part of a three-tier platform for GPU compute economics:
+
+| Layer | Project | Role |
+|---|---|---|
+| **Data Ingestion** | [gpu_price_intelligence](https://github.com/8terbahn/gpu_price_intelligence) | Collects and serves GPU pricing data |
+| **Performance Evaluation** | **gpu_benchmark_platform** (this repo) | Benchmarks GPU performance via K8s Operator |
+| **Smart Scheduling** | [distribute_gpu_scheduler](https://github.com/8terbahn/distribute_gpu_scheduler) | Cost-optimized workload orchestration |
+
+### How They Connect
+
+`	ext
+gpu_price_intelligence  ──price signals──▶  distribute_gpu_scheduler
+                                                    ▲
+gpu_benchmark_platform  ──perf baselines──┘
+`
